@@ -6,4 +6,5 @@ source $PYTHON_VENV_DIR/bin/activate
 #install requirements 
 pip install -r requirements.txt
 
-python3 publish.py
+python3 source-data-interface.py &
+python3 passenger-svc.py &
