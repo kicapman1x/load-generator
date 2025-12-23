@@ -91,8 +91,8 @@ def main():
 
             print(f"Published random passenger {message['passenger_id']}")
 
-            with open(f"{tmp_dir}/ingested", "a") as f: 
-                f.write(row)
+            with open(f"{tmp_dir}/ingested.jsonl", "a") as f: 
+                f.write(json.dumps(row) + "\n")
 
             time.sleep(PUBLISH_INTERVAL)
     except KeyboardInterrupt:
