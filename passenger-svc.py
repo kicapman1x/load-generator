@@ -36,7 +36,7 @@ def bootstrap():
     #Logging setup
     log_level = getattr(logging, loglvl, logging.INFO)
     logging.basicConfig(
-        filename=f'{logdir}/source-data-interface.log',
+        filename=f'{logdir}/passenger-svc.log',
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
