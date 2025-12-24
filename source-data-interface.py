@@ -6,20 +6,34 @@ import ssl
 import random
 import pika
 from dotenv import load_dotenv
+import logging
 
-load_dotenv()
-payload_dir = os.getenv("PAYLOAD_DIR")
-tmp_dir = os.getenv("TMP_DIR")
-ca_cert= os.environ.get("CA_PATH")
-rmq_url = os.environ.get("RMQ_HOST")
-rmq_port = int(os.environ.get("RMQ_PORT"))
-rmq_username = os.environ.get("RMQ_USER")
-rmq_password = os.environ.get("RMQ_PW")
-interval = int(os.environ.get("INT_PERIOD"))
+logger = logging.getLogger(__name__)
 
-QUEUE_NAME = "source_data_intake"
+def bootstrap():
+    #Environment variables
+    load_dotenv()
+    global payload_dir, tmp_dir, ca_cert, rmq_url, rmq_port, rmq_username, rmq_password, interval, QUEUE_NAME, PUBLISH_INTERVAL
+    payload_dir = os.getenv("PAYLOAD_DIR")
+    tmp_dir = os.getenv("TMP_DIR")
+    ca_cert= os.environ.get("CA_PATH")
+    rmq_url = os.environ.get("RMQ_HOST")
+    rmq_port = int(os.environ.get("RMQ_PORT"))
+    rmq_username = os.environ.get("RMQ_USER")
+    rmq_password = os.environ.get("RMQ_PW")
+    QUEUE_NAME = "source_data_intake"
+    PUBLISH_INTERVAL = int(os.environ.get("INT_PERIOD"))
+    logdir = os.environ.get("log_directory", ".")
+    loglvl = os.environ.get("log_level", "INFO").upper()
 
-PUBLISH_INTERVAL = interval
+    #Logging setup
+    log_level = getattr(logging, loglvl, logging.INFO)
+    logging.basicConfig(
+        filename=f'{logdir}/source-data-interface.log',
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    
 
 def get_rmq_connection():
     credentials = pika.PlainCredentials(
@@ -54,16 +68,20 @@ def load_csv():
 
 
 def main():
-    print("Loading CSV into memory...")
+    bootstrap()
+    logger.info("**********Starting source data publisher**********")
+    logger.info(f"Loading payloads from {payload_dir}/flights.csv")
     rows = load_csv()
-    print(f"Loaded {len(rows)} rows")
-
+    logger.info(f"Loaded {len(rows)} rows")
+    logger.info(f"Connecting to RabbitMQ at {rmq_url}:{rmq_port}")
     connection = get_rmq_connection()
     channel = connection.channel()
+    logger.info(f"Declaring queue {QUEUE_NAME}")
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
 
     try:
         while True:
+            logger.info("Publishing new message from source data")
             row = random.choice(rows)
 
             message = {
@@ -79,6 +97,7 @@ def main():
             }
 
             body = json.dumps(message)
+            logger.debug(f"Publishing message: {body}")
 
             channel.basic_publish(
                 exchange="",
@@ -89,14 +108,14 @@ def main():
                 )
             )
 
-            print(f"Published random passenger {message['passenger_id']}")
+            logger.info(f"Published random passenger {message['passenger_id']}")
 
             with open(f"{tmp_dir}/ingested.jsonl", "a") as f: 
                 f.write(json.dumps(row) + "\n")
 
             time.sleep(PUBLISH_INTERVAL)
     except KeyboardInterrupt:
-        print("Stopping publisher...")
+        logger.info("Shutting down publisher")
     finally:
         connection.close()
 

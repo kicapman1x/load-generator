@@ -8,23 +8,38 @@ import hashlib
 import base64
 import mysql.connector
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-rmq_url = os.environ.get("RMQ_HOST")
-rmq_port = int(os.environ.get("RMQ_PORT"))
-rmq_username = os.environ.get("RMQ_USER")
-rmq_password = os.environ.get("RMQ_PW")
-ca_cert = os.environ.get("CA_PATH")
-secret_key = os.environ.get("HMAC_KEY").encode("utf-8")
-mysql_url = os.environ.get("MYSQL_HOST")
-mysql_port = int(os.environ.get("MYSQL_PORT"))
-mysql_user = os.environ.get("MYSQL_USER")
-mysql_password = os.environ.get("MYSQL_PW")
-mysql_db = os.environ.get("MYSQL_DB")
+def bootstrap():
+    #Environment variables
+    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME, PRODUCE_QUEUE_NAME
+    rmq_url = os.environ.get("RMQ_HOST")
+    rmq_port = int(os.environ.get("RMQ_PORT"))
+    rmq_username = os.environ.get("RMQ_USER")
+    rmq_password = os.environ.get("RMQ_PW")
+    ca_cert = os.environ.get("CA_PATH")
+    secret_key = os.environ.get("HMAC_KEY").encode("utf-8")
+    mysql_url = os.environ.get("MYSQL_HOST")
+    mysql_port = int(os.environ.get("MYSQL_PORT"))
+    mysql_user = os.environ.get("MYSQL_USER")
+    mysql_password = os.environ.get("MYSQL_PW")
+    mysql_db = os.environ.get("MYSQL_DB")
+    CONSUME_QUEUE_NAME = "source_data_intake"
+    PRODUCE_QUEUE_NAME = "source_data_passenger"
+    logdir = os.environ.get("log_directory", ".")
+    loglvl = os.environ.get("log_level", "INFO").upper()
 
-CONSUME_QUEUE_NAME = "source_data_intake"
-PRODUCE_QUEUE_NAME = "source_data_passenger"
+    #Logging setup
+    log_level = getattr(logging, loglvl, logging.INFO)
+    logging.basicConfig(
+        filename=f'{logdir}/source-data-interface.log',
+        level=log_level,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
 
 def get_rmq_connection():
     credentials = pika.PlainCredentials(
@@ -70,15 +85,17 @@ def get_mysql_connection():
 def process_message(channel, method, properties, body):
     try:
         message = json.loads(body)
-        print("Received message:")
-        print(json.dumps(message, indent=2))
+        logger.info(f"Received message: {message}")
 
         p_key = process_person(message)
         if(p_key):
+            logger.info(f"Processed passenger: {p_key}")
             message["passenger_key"] = p_key
+
+            logger.info(f"Publishing passenger details to {PRODUCE_QUEUE_NAME}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
-            
             body = json.dumps(message)
+
             channel.basic_publish(
                 exchange="",
                 routing_key=PRODUCE_QUEUE_NAME,
@@ -87,17 +104,19 @@ def process_message(channel, method, properties, body):
                     delivery_mode=2
                 )
             )
+            logger.info("Passenger details written and message published.")
         else:
-            print("Passenger details not written - On to next message!")
+            logger.info("Passenger details not written - On to next message!")    
         channel.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as e:
-        print(f"Error processing message: {e}")
+        logger.error(f"Error processing message: {e}")
         channel.basic_nack(
             delivery_tag=method.delivery_tag,
             requeue=True
         )
 
 def process_person(message):
+    logger.debug(f"Processing passenger: {message}")
     p_id = message["passenger_id"]
     sn = message["first_name"]
     ln = message["last_name"]
@@ -106,13 +125,16 @@ def process_person(message):
     p_age = int(message["age"])
 
     p_key = generate_p_key(p_id,p_fn,p_nat)
+    logger.info(f"Generated passenger key: {p_key}")
 
     conn = get_mysql_connection()
     try:
         if passenger_exists(conn, p_key):
             return None
         else: 
+            logger.info(f"Inserting new passenger: {p_key} - {p_fn} - {p_nat} - {p_age}")
             trace_id = str(uuid.uuid4())
+            logger.debug(f"Generated trace ID: {trace_id}")
             insert_passenger(conn, p_key, p_fn, p_nat, p_age, trace_id)
             conn.commit()
             return p_key
@@ -123,6 +145,7 @@ def process_person(message):
         conn.close()
 
 def passenger_exists(conn, passenger_key):
+    logger.debug(f"Checking if passenger exists: {passenger_key}")
     cursor = conn.cursor()
     cursor.execute(
         "SELECT 1 FROM passengers WHERE passenger_key = %s LIMIT 1",
@@ -164,16 +187,19 @@ def generate_p_key(id,fn,nat):
 
 
 def main():
-    print("Starting SSL RabbitMQ consumer...")
-    global connection, channel 
+    bootstrap()
+    logger.info("**********Starting passenger service**********")
 
+    logger.info("Starting SSL RabbitMQ consumer...")
+    global connection, channel 
     connection = get_rmq_connection()
     channel = connection.channel()
 
+    logger.info(f"Declaring queue {CONSUME_QUEUE_NAME}")
     channel.queue_declare(queue=CONSUME_QUEUE_NAME, durable=True)
-
     channel.basic_qos(prefetch_count=1)
 
+    logger.info(f"Consuming messages from {CONSUME_QUEUE_NAME}")
     channel.basic_consume(
         queue=CONSUME_QUEUE_NAME,
         on_message_callback=process_message,
@@ -181,12 +207,11 @@ def main():
     )
 
     try:
-        print("Waiting for messages. Ctrl+C to exit.")
+        logger.info("Waiting for messages. Ctrl+C to exit.")
         channel.start_consuming()
 
     except KeyboardInterrupt:
-        print("Stopping consumer...")
-
+        logger.info("Stopping consumer...")
     finally:
         channel.stop_consuming()
         connection.close()
