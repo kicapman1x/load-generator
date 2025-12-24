@@ -9,3 +9,4 @@ pip install -r requirements.txt
 nohup python3 source-data-interface.py > /dev/null &
 nohup python3 passenger-svc.py > /dev/null &
 nohup python3 flight-svc.py > /dev/null &
+nohup python3 facial-svc.py > /dev/null &
