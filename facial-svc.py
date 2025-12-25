@@ -9,6 +9,9 @@ import base64
 import mysql.connector
 import uuid
 import logging
+import requests
+import gzip
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +101,7 @@ def process_message(channel, method, properties, body):
             if facial_exists(conn, p_key):
                 logger.warning(f"Facial data exists for passenger : {p_key} - Skipping facial insertion.")
             else:
+                logger.info(f"Feature not implemented yet - next deployment.")
                 #generate pic - next deployment
         else:
             facial_b64 = get_facial_image(p_key)
@@ -177,23 +181,18 @@ def get_traceid(conn, passenger_key):
     else:
         return None
 
-def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airport):
+def insert_facial(conn, passenger_key, trace_id):
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO flights (
+        INSERT INTO facial (
             passenger_key,
-            departure_date,
-            arrival_airport,
-            trace_id,
-            to_delete
+            trace_id
         )
-        VALUES (%s, %s, %s, %s, %s, FALSE)
+        VALUES (%s, %s)
         """,
         (
             passenger_key,
-            departure_date,
-            arrival_airport,
             trace_id
         )
     )

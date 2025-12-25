@@ -9,6 +9,7 @@ import base64
 import mysql.connector
 import uuid
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ def process_message(channel, method, properties, body):
         else:
             trace_id = get_traceid(conn, p_key)
             logger.info(f"Inserting flight for passenger: {p_key} with trace ID: {trace_id}")
-            insert_flights(conn, message["passenger_key"], trace_id, message["departure_date"], message["arrival_airport"])
+            insert_flights(conn, message["passenger_key"], trace_id, parse_departure_date(message["departure_date"]), message["arrival_airport"])
             conn.commit()
 
             logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME}")
@@ -123,6 +124,14 @@ def process_message(channel, method, properties, body):
             requeue=True
         )
     conn.close()
+
+def parse_departure_date(raw):
+    for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Unsupported date format: {raw}")
 
 def passenger_exists(conn, passenger_key):
     logger.debug(f"Checking if passenger exists: {passenger_key}")
@@ -157,7 +166,7 @@ def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airpor
             trace_id,
             to_delete
         )
-        VALUES (%s, %s, %s, %s, %s, FALSE)
+        VALUES (%s, %s, %s, %s, FALSE)
         """,
         (
             passenger_key,
