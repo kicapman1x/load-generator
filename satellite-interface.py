@@ -33,8 +33,8 @@ def bootstrap():
     mysql_user = os.environ.get("MYSQL_USER")
     mysql_password = os.environ.get("MYSQL_PW")
     mysql_db = os.environ.get("MYSQL_DB")
-    CONSUME_QUEUE_NAME = "source_data_flight"
-    PRODUCE_QUEUE_NAME = "source_data_facial"
+    CONSUME_QUEUE_NAME = "source_data_facial"
+    PRODUCE_QUEUE_NAME = ""
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
 
@@ -105,7 +105,7 @@ def process_message(channel, method, properties, body):
                 #generate pic - next deployment
         else:
             facial_b64 = get_facial_image(p_key)
-            trace_id = message["trace_id"]
+            trace_id = get_traceid(conn, p_key)
             logger.info(f"Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
             insert_facial(conn, message["passenger_key"], trace_id)
             conn.commit()
@@ -114,6 +114,7 @@ def process_message(channel, method, properties, body):
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],
+                "trace_id": trace_id,
                 "facial_image": facial_b64
             }
             body = json.dumps(message_push)
@@ -166,6 +167,19 @@ def facial_exists(conn, passenger_key):
         (passenger_key,)
     )
     return cursor.fetchone() is not None
+
+def get_traceid(conn, passenger_key):
+    logger.debug(f"Retrieving trace ID for passenger: {passenger_key}")
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT trace_id FROM passengers WHERE passenger_key = %s LIMIT 1",
+        (passenger_key,)
+    )
+    result = cursor.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
 
 def insert_facial(conn, passenger_key, trace_id):
     cursor = conn.cursor()

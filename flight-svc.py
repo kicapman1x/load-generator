@@ -17,7 +17,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME, PRODUCE_QUEUE_NAME
+    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_PROCESS, PRODUCE_QUEUE_NAME_PRE_FACIAL, conn
     rmq_url = os.environ.get("RMQ_HOST")
     rmq_port = int(os.environ.get("RMQ_PORT"))
     rmq_username = os.environ.get("RMQ_USER")
@@ -29,8 +29,10 @@ def bootstrap():
     mysql_user = os.environ.get("MYSQL_USER")
     mysql_password = os.environ.get("MYSQL_PW")
     mysql_db = os.environ.get("MYSQL_DB")
-    CONSUME_QUEUE_NAME = "source_data_passenger"
-    PRODUCE_QUEUE_NAME = "source_data_flight"
+    CONSUME_QUEUE_NAME_PRE_FACIAL = "source_data_passenger"
+    CONSUME_QUEUE_NAME_POST_PROCESS = "source_data_facial"
+    PRODUCE_QUEUE_NAME_PRE_FACIAL = "source_data_flight"
+    PRODUCE_QUEUE_NAME_POST_FACIAL = "upd_facial_data_flight"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
 
@@ -40,6 +42,21 @@ def bootstrap():
         filename=f'{logdir}/flight-svc.log',
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+
+    #global sql connection
+    conn = mysql.connector.connect(
+        host=mysql_url,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_db,
+
+        ssl_ca=ca_cert,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,  
+
+        autocommit=False
     )
 
 def get_rmq_connection():
@@ -68,24 +85,8 @@ def get_rmq_connection():
 
     return pika.BlockingConnection(params)
 
-def get_mysql_connection():
-    return mysql.connector.connect(
-        host=mysql_url,
-        port=mysql_port,
-        user=mysql_user,
-        password=mysql_password,
-        database=mysql_db,
 
-        ssl_ca=ca_cert,
-        ssl_verify_cert=True,
-        ssl_verify_identity=True,  
-
-        autocommit=False
-    )
-
-def process_message(channel, method, properties, body):
-    global conn
-    conn = get_mysql_connection()
+def process_message_pre_facial(channel, method, properties, body):
     try:
         message = json.loads(body)
         logger.info(f"Received message: {message}")
@@ -95,13 +96,13 @@ def process_message(channel, method, properties, body):
         if passenger_exists(conn, p_key):
             logger.warning(f"Passenger exists : {p_key} - Skipping flight insertion.")
         else:
-            trace_id = get_traceid(conn, p_key)
+            trace_id = message["trace_id"]
             logger.info(f"Inserting flight for passenger: {p_key} with trace ID: {trace_id}")
             insert_flights(conn, message["passenger_key"], trace_id, parse_departure_date(message["departure_date"]), message["arrival_airport"])
             conn.commit()
 
-            logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME}")
-            channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
+            logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME_PRE_FACIAL}")
+            channel.queue_declare(queue=PRODUCE_QUEUE_NAME_PRE_FACIAL, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],
                 "trace_id": trace_id
@@ -109,7 +110,7 @@ def process_message(channel, method, properties, body):
             body = json.dumps(message)
             channel.basic_publish(
                 exchange="",
-                routing_key=PRODUCE_QUEUE_NAME,
+                routing_key=PRODUCE_QUEUE_NAME_PRE_FACIAL,
                 body=body,
                 properties=pika.BasicProperties(
                     delivery_mode=2
@@ -125,13 +126,44 @@ def process_message(channel, method, properties, body):
         )
     conn.close()
 
-def parse_departure_date(raw):
-    for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
-        try:
-            return datetime.strptime(raw, fmt).date()
-        except ValueError:
-            continue
-    raise ValueError(f"Unsupported date format: {raw}")
+def process_message_post_facial(channel, method, properties, body):
+    try:
+        message = json.loads(body)
+        p_key = message["passenger_key"]
+        logger.info(f"Received post facial message for passenger: {p_key}")
+
+        if passenger_exists(conn, p_key):
+            logger.info(f"Passenger exists : {p_key} - fetching flight details.")
+            flight_details = get_flight_details(conn, p_key)
+            logger.info(f"Flight details for passenger {p_key}: {flight_details}")
+            logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME_POST_FACIAL}")
+            channel.queue_declare(queue=PRODUCE_QUEUE_NAME_POST_FACIAL, durable=True)
+            message_push = {
+                "passenger_key": p_key,
+                "trace_id": message["trace_id"],
+                "departure_date": parse_departure_date(flight_details["departure_date"]),
+                "arrival_airport": flight_details["arrival_airport"]
+            }
+            body = json.dumps(message_push)
+            channel.basic_publish(
+                exchange="",
+                routing_key=PRODUCE_QUEUE_NAME_POST_FACIAL,
+                body=body,
+                properties=pika.BasicProperties(
+                    delivery_mode=2
+                )
+            )
+            logger.info("Flight details published post facial processing with facial data.")
+        else:
+            logger.error(f"Passenger does not exist : {p_key} - cannot fetch flight details.")
+        channel.basic_ack(delivery_tag=method.delivery_tag)    
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        channel.basic_nack(
+            delivery_tag=method.delivery_tag,
+            requeue=True
+        )
+    conn.close()
 
 def passenger_exists(conn, passenger_key):
     logger.debug(f"Checking if passenger exists: {passenger_key}")
@@ -142,18 +174,18 @@ def passenger_exists(conn, passenger_key):
     )
     return cursor.fetchone() is not None
 
-def get_traceid(conn, passenger_key):
-    logger.debug(f"Retrieving trace ID for passenger: {passenger_key}")
-    cursor = conn.cursor()
+def get_flight_details(conn, passenger_key):
+    logger.debug(f"Fetching flight details for passenger: {passenger_key}")
+    cursor = conn.cursor(dictionary=True)
     cursor.execute(
-        "SELECT trace_id FROM passengers WHERE passenger_key = %s LIMIT 1",
+        """
+        SELECT departure_date, arrival_airport 
+        FROM flights 
+        WHERE passenger_key = %s
+        """,
         (passenger_key,)
     )
-    result = cursor.fetchone()
-    if result:
-        return result[0]
-    else:
-        return None
+    return cursor.fetchone()
 
 def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airport):
     cursor = conn.cursor()
@@ -176,6 +208,14 @@ def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airpor
         )
     )
 
+def parse_departure_date(raw):
+    for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"Unsupported date format: {raw}")
+
 def main():
     bootstrap()
     logger.info("**********Starting passenger service**********")
@@ -185,14 +225,24 @@ def main():
     connection = get_rmq_connection()
     channel = connection.channel()
 
-    logger.info(f"Declaring queue {CONSUME_QUEUE_NAME}")
-    channel.queue_declare(queue=CONSUME_QUEUE_NAME, durable=True)
+    logger.info(f"Declaring queue {CONSUME_QUEUE_NAME_PRE_FACIAL}")
+    channel.queue_declare(queue=CONSUME_QUEUE_NAME_PRE_FACIAL, durable=True)
+    channel.queue_declare(queue=CONSUME_QUEUE_NAME_POST_FACIAL, durable=True)
     channel.basic_qos(prefetch_count=1)
 
-    logger.info(f"Consuming messages from {CONSUME_QUEUE_NAME}")
+    logger.info(f"Consuming messages from {CONSUME_QUEUE_NAME_PRE_FACIAL}")
+
     channel.basic_consume(
-        queue=CONSUME_QUEUE_NAME,
-        on_message_callback=process_message,
+        queue=CONSUME_QUEUE_NAME_PRE_FACIAL,
+        on_message_callback=process_message_pre_facial,
+        auto_ack=False
+    )
+
+    logger.info(f"Consuming messages from {CONSUME_QUEUE_NAME_POST_FACIAL}")
+
+    channel.basic_consume(
+        queue=CONSUME_QUEUE_NAME_POST_FACIAL,
+        on_message_callback=process_message_post_facial,
         auto_ack=False
     )
 

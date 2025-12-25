@@ -87,11 +87,11 @@ def process_message(channel, method, properties, body):
         message = json.loads(body)
         logger.info(f"Received message: {message}")
 
-        p_key = process_person(message)
+        p_key, trace_id = process_person(message)
         if(p_key):
             logger.info(f"Processed passenger: {p_key}")
             message["passenger_key"] = p_key
-
+            message["trace_id"] = trace_id
             logger.info(f"Publishing passenger details to {PRODUCE_QUEUE_NAME}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
             body = json.dumps(message)
@@ -130,14 +130,14 @@ def process_person(message):
     conn = get_mysql_connection()
     try:
         if passenger_exists(conn, p_key):
-            return None
+            return None, None
         else: 
             logger.info(f"Inserting new passenger: {p_key} - {p_fn} - {p_nat} - {p_age}")
             trace_id = str(uuid.uuid4())
             logger.debug(f"Generated trace ID: {trace_id}")
             insert_passenger(conn, p_key, p_fn, p_nat, p_age, trace_id)
             conn.commit()
-            return p_key
+            return p_key, trace_id
     except mysql.connector.errors.IntegrityError:
         conn.rollback()
         return None
