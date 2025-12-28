@@ -33,8 +33,11 @@ def bootstrap():
     mysql_user = os.environ.get("MYSQL_USER")
     mysql_password = os.environ.get("MYSQL_PW")
     mysql_db = os.environ.get("MYSQL_DB")
+    mysql_db_s1 = os.environ.get("MYSQL_DB_SATELLITE1")
+    mysql_db_s2 = os.environ.get("MYSQL_DB_SATELLITE2")
+    mysql_db_s3 = os.environ.get("MYSQL_DB_SATELLITE3")
     CONSUME_QUEUE_NAME = "source_data_facial"
-    PRODUCE_QUEUE_NAME = ""
+    PRODUCE_QUEUE_NAME = "ingest_facial_data_"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
 
@@ -87,40 +90,93 @@ def get_mysql_connection():
         autocommit=False
     )
 
+def get_mysql_connection_s1():
+    return mysql.connector.connect(
+        host=mysql_url,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_db_s1,
+
+        ssl_ca=ca_cert,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,  
+
+        autocommit=False
+    )
+
+def get_mysql_connection_s2():
+    return mysql.connector.connect(
+        host=mysql_url,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_db_s2,
+
+        ssl_ca=ca_cert,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,  
+
+        autocommit=False
+    )
+
+def get_mysql_connection_s3():
+    return mysql.connector.connect(
+        host=mysql_url,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_db_s3,
+
+        ssl_ca=ca_cert,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,  
+
+        autocommit=False
+    )
+
 def process_message(channel, method, properties, body):
-    global conn
+    global conn, conn_s1, conn_s2, conn_s3
     conn = get_mysql_connection()
+    conn_s1 = get_mysql_connection_s1()
+    conn_s2 = get_mysql_connection_s2()
+    conn_s3 = get_mysql_connection_s3()
     try:
         message = json.loads(body)
         logger.info(f"Received message: {message}")
 
         p_key = message["passenger_key"]
 
-        if passenger_exists(conn, p_key):
-            logger.warning(f"Passenger exists : {p_key} - Skipping facial insertion.")
-            if facial_exists(conn, p_key):
-                logger.warning(f"Facial data exists for passenger : {p_key} - Skipping facial insertion.")
-            else:
-                logger.info(f"Feature not implemented yet - next deployment.")
-                #generate pic - next deployment
+        if passenger_exists_satellite(conn_s1, conn_s2, conn_s3, p_key):
+            logger.warning(f"Passenger already exists : {p_key} - skipping ingesting to satellite queue.")
         else:
-            facial_b64 = get_facial_image(p_key)
-            trace_id = get_traceid(conn, p_key)
-            logger.info(f"Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
-            insert_facial(conn, message["passenger_key"], trace_id)
-            conn.commit()
+            selected_satellite = None
+            departure_date = message["departure_date"]
+            arrival_airport = message["arrival_airport"]
+            satelite_check = flight_exists_satellite(conn_s1, conn_s2, conn_s3, departure_date, arrival_airport)
+            if satelite_check:
+                selected_satellite = satelite_check
+                logger.info(f"Flight exists in satellite {selected_satellite} - routing facial data accordingly.")
+            else:
+                selected_satellite = random.choice(["s1", "s2", "s3"])
+                logger.info(f"Flight does not exist in any satellite - defaulting to randomly selected satellite {selected_satellite} for ingestion.")
 
-            logger.info(f"Publishing facial details to {PRODUCE_QUEUE_NAME}")
-            channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
+            trace_id = message["trace_id"]
+            logger.info(f"Ingesting data for passenger: {p_key} with trace ID: {trace_id}")
+
+            logger.info(f"Publishing facial details to {PRODUCE_QUEUE_NAME}{selected_satellite}")
+            channel.queue_declare(queue=PRODUCE_QUEUE_NAME + selected_satellite, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],
                 "trace_id": trace_id,
-                "facial_image": facial_b64
+                "facial_image": message["facial_image"],
+                "departure_date": departure_date,
+                "arrival_airport": arrival_airport
             }
             body = json.dumps(message_push)
             channel.basic_publish(
                 exchange="",
-                routing_key=PRODUCE_QUEUE_NAME,
+                routing_key=PRODUCE_QUEUE_NAME+selected_satellite,
                 body=body,
                 properties=pika.BasicProperties(
                     delivery_mode=2
@@ -136,21 +192,7 @@ def process_message(channel, method, properties, body):
         )
     conn.close()
 
-def get_facial_image(passenger_key):
-    logger.debug(f"Generating facial image for passenger: {passenger_key}")
-    resp = requests.get(
-        facial_api,
-        timeout=10
-    )
-    resp.raise_for_status()
-    logger.debug(f"Facial image retrieved for passenger: {passenger_key}")
-    gzipped = gzip.compress(resp.content)
-    facial_b64 = base64.b64encode(gzipped).decode("utf-8")
-    with open(f"{facial_dir}/{passenger_key}.b64", "w") as f:
-        f.write(facial_b64)
-    return facial_b64
-
-def passenger_exists(conn, passenger_key):
+def passenger_exists_satellite_db(conn, passenger_key):
     logger.debug(f"Checking if passenger exists: {passenger_key}")
     cursor = conn.cursor()
     cursor.execute(
@@ -159,43 +201,31 @@ def passenger_exists(conn, passenger_key):
     )
     return cursor.fetchone() is not None
 
-def facial_exists(conn, passenger_key):
-    logger.debug(f"Checking if facial data exists: {passenger_key}")
+def passenger_exists_satellite(conn_s1, conn_s2, conn_s3, passenger_key):
+    return (
+        passenger_exists_satellite_db(conn_s1, passenger_key) or
+        passenger_exists_satellite_db(conn_s2, passenger_key) or
+        passenger_exists_satellite_db(conn_s3, passenger_key)
+    )
+
+def flight_exists_satellite_db(conn, departure_date, arrival_airport):
+    logger.debug(f"Checking if flight exists: {departure_date} to {arrival_airport}")
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT has_image FROM facial WHERE passenger_key = %s LIMIT 1",
-        (passenger_key,)
+        "SELECT 1 FROM flights WHERE departure_date = %s AND arrival_airport = %s LIMIT 1",
+        (departure_date, arrival_airport)
     )
     return cursor.fetchone() is not None
 
-def get_traceid(conn, passenger_key):
-    logger.debug(f"Retrieving trace ID for passenger: {passenger_key}")
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT trace_id FROM passengers WHERE passenger_key = %s LIMIT 1",
-        (passenger_key,)
-    )
-    result = cursor.fetchone()
-    if result:
-        return result[0]
+def flight_exists_satellite(conn_s1, conn_s2, conn_s3, departure_date, arrival_airport):
+    if flight_exists_satellite_db(conn_s1, departure_date, arrival_airport):
+        return "s1"
+    elif flight_exists_satellite_db(conn_s2, departure_date, arrival_airport):
+        return "s2"
+    elif flight_exists_satellite_db(conn_s3, departure_date, arrival_airport):
+        return "s3"
     else:
         return None
-
-def insert_facial(conn, passenger_key, trace_id):
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO facial (
-            passenger_key,
-            trace_id
-        )
-        VALUES (%s, %s)
-        """,
-        (
-            passenger_key,
-            trace_id
-        )
-    )
 
 def main():
     bootstrap()
