@@ -19,7 +19,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global facial_dir, facial_api, rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME, PRODUCE_QUEUE_NAME
+    global facial_dir, facial_api, rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, CONSUME_QUEUE_NAME, logdir, loglvl, mysql_db_s1
     facial_dir = os.environ.get("FACIAL_DIR")
     facial_api = os.environ.get("image_gen_api")
     rmq_url = os.environ.get("RMQ_HOST")
@@ -32,12 +32,8 @@ def bootstrap():
     mysql_port = int(os.environ.get("MYSQL_PORT"))
     mysql_user = os.environ.get("MYSQL_USER")
     mysql_password = os.environ.get("MYSQL_PW")
-    mysql_db = os.environ.get("MYSQL_DB")
     mysql_db_s1 = os.environ.get("MYSQL_DB_SATELLITE1")
-    mysql_db_s2 = os.environ.get("MYSQL_DB_SATELLITE2")
-    mysql_db_s3 = os.environ.get("MYSQL_DB_SATELLITE3")
     CONSUME_QUEUE_NAME = "ingest_facial_data_s1"
-    PRODUCE_QUEUE_NAME = "delete_passenger_data"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
 
@@ -48,6 +44,90 @@ def bootstrap():
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
+
+def get_rmq_connection():
+    credentials = pika.PlainCredentials(
+        rmq_username,
+        rmq_password
+    )
+
+    ssl_context = ssl.create_default_context(cafile=ca_cert)
+    ssl_context.check_hostname = True
+    ssl_context.verify_mode = ssl.CERT_REQUIRED
+
+    ssl_options = pika.SSLOptions(
+        context=ssl_context,
+        server_hostname=rmq_url
+    )
+
+    params = pika.ConnectionParameters(
+        host=rmq_url,
+        port=rmq_port,
+        credentials=credentials,
+        ssl_options=ssl_options,
+        heartbeat=60,
+        blocked_connection_timeout=30
+    )
+
+    return pika.BlockingConnection(params)
+
+def get_mysql_connection_s1():
+    return mysql.connector.connect(
+        host=mysql_url,
+        port=mysql_port,
+        user=mysql_user,
+        password=mysql_password,
+        database=mysql_db_s1,
+
+        ssl_ca=ca_cert,
+        ssl_verify_cert=True,
+        ssl_verify_identity=True,  
+
+        autocommit=False
+    )
+
+def process_message(ch, method, properties, body):
+    global conn_s1
+    conn_s1 = get_mysql_connection_s1()
+    try:
+        message = json.loads(body)
+        logger.info(f"Received message for satellite 1: {message}")
+
+        p_key = message["passenger_key"]
+        trace_id = message["trace_id"]
+        facial_image = message["facial_image"]
+        departure_date = datetime.strptime(message["departure_date"], "%Y-%m-%d %H:%M")
+        arrival_airport = message["arrival_airport"]
+        logger.info(f"Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
+
+        insert_full_data_satellite1(
+            conn_s1,
+            p_key,
+            trace_id,
+            facial_image,
+            departure_date,
+            arrival_airport
+        )
+        conn_s1.commit()
+        logger.info(f"Successfully commited data for passenger: {p_key} into satellite 1 database.")
+    except Exception as e:
+        logger.error(f"Error processing message: {e}")
+        channel.basic_nack(
+            delivery_tag=method.delivery_tag,
+            requeue=True
+        )
+    finally:
+        ch.basic_ack(delivery_tag=method.delivery_tag)
+        conn_s1.close()
+
+def insert_full_data_satellite1(conn, passenger_key, trace_id, facial_image, departure_date, arrival_airport):
+    cursor = conn.cursor()
+    insert_query = """
+        INSERT INTO touchpoint (passenger_key, trace_id, facial_image, departure_date, arrival_airport)
+        VALUES (%s, %s, %s, %s, %s)
+    """
+    cursor.execute(insert_query, (passenger_key, trace_id, facial_image, departure_date, arrival_airport))
+    logger.info(f"Inserted data for passenger {passenger_key} into satellite 1 database.")
 
 def main():
     bootstrap()

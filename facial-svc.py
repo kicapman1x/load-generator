@@ -11,7 +11,6 @@ import uuid
 import logging
 import requests
 import gzip
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 

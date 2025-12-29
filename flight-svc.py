@@ -85,7 +85,6 @@ def get_rmq_connection():
 
     return pika.BlockingConnection(params)
 
-
 def process_message_pre_facial(channel, method, properties, body):
     try:
         message = json.loads(body)
@@ -98,7 +97,7 @@ def process_message_pre_facial(channel, method, properties, body):
         else:
             trace_id = message["trace_id"]
             logger.info(f"Inserting flight for passenger: {p_key} with trace ID: {trace_id}")
-            insert_flights(conn, message["passenger_key"], trace_id, parse_departure_date(message["departure_date"]), message["arrival_airport"])
+            insert_flights(conn, message["passenger_key"], trace_id, datetime.strptime(message["departure_date"],"%Y-%m-%d %H:%M"), message["arrival_airport"])
             conn.commit()
 
             logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME_PRE_FACIAL}")
@@ -207,14 +206,6 @@ def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airpor
             trace_id
         )
     )
-
-def parse_departure_date(raw):
-    for fmt in ("%m/%d/%Y", "%m-%d-%Y"):
-        try:
-            return datetime.strptime(raw, fmt).date()
-        except ValueError:
-            continue
-    raise ValueError(f"Unsupported date format: {raw}")
 
 def main():
     bootstrap()

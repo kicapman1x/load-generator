@@ -19,7 +19,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global facial_dir, facial_api, rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME, PRODUCE_QUEUE_NAME
+    global facial_dir, facial_api, rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME, PRODUCE_QUEUE_NAME, logdir, loglvl, mysql_db_s1, mysql_db_s2, mysql_db_s3
     facial_dir = os.environ.get("FACIAL_DIR")
     facial_api = os.environ.get("image_gen_api")
     rmq_url = os.environ.get("RMQ_HOST")
@@ -153,7 +153,7 @@ def process_message(channel, method, properties, body):
             selected_satellite = None
             departure_date = message["departure_date"]
             arrival_airport = message["arrival_airport"]
-            satelite_check = flight_exists_satellite(conn_s1, conn_s2, conn_s3, departure_date, arrival_airport)
+            satelite_check = flight_exists_satellite(conn_s1, conn_s2, conn_s3, datetime.strptime(departure_date,"%Y-%m-%d %H:%M"), arrival_airport)
             if satelite_check:
                 selected_satellite = satelite_check
                 logger.info(f"Flight exists in satellite {selected_satellite} - routing facial data accordingly.")
