@@ -14,7 +14,6 @@ def bootstrap():
     #Environment variables
     load_dotenv()
     global payload_dir, tmp_dir, ca_cert, rmq_url, rmq_port, rmq_username, rmq_password, interval, QUEUE_NAME, PUBLISH_INTERVAL
-    payload_dir = os.getenv("PAYLOAD_DIR")
     tmp_dir = os.getenv("TMP_DIR")
     ca_cert= os.environ.get("CA_PATH")
     rmq_url = os.environ.get("RMQ_HOST")
@@ -63,7 +62,7 @@ def get_rmq_connection():
 
 
 def load_csv():
-    with open(f"{payload_dir}/flights.csv", newline="", encoding="utf-8") as csvfile:
+    with open(f"{tmp_dir}/batch_payload.csv", newline="", encoding="utf-8") as csvfile:
         return list(csv.DictReader(csvfile))
 
 
@@ -83,6 +82,7 @@ def main():
         while True:
             logger.info("Publishing new message from source data")
             row = random.choice(rows)
+            rows.remove(row)
 
             message = {
                 "passenger_id": row["Passenger ID"],
