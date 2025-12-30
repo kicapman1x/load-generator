@@ -197,7 +197,7 @@ def passenger_exists_satellite_db(conn, passenger_key):
     logger.debug(f"Checking if passenger exists: {passenger_key}")
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT 1 FROM facial WHERE passenger_key = %s LIMIT 1",
+        "SELECT 1 FROM touchpoint WHERE passenger_key = %s LIMIT 1",
         (passenger_key,)
     )
     return cursor.fetchone() is not None
@@ -213,7 +213,7 @@ def flight_exists_satellite_db(conn, departure_date, arrival_airport):
     logger.debug(f"Checking if flight exists: {departure_date} to {arrival_airport}")
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT 1 FROM flights WHERE departure_date = %s AND arrival_airport = %s LIMIT 1",
+        "SELECT 1 FROM touchpoint WHERE departure_date = %s AND arrival_airport = %s LIMIT 1",
         (departure_date, arrival_airport)
     )
     return cursor.fetchone() is not None
