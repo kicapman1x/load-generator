@@ -143,7 +143,7 @@ def process_message(channel, method, properties, body):
     conn_s3 = get_mysql_connection_s3()
     try:
         message = json.loads(body)
-        logger.info(f"Received message: {message}")
+        logger.info("Received message")
 
         p_key = message["passenger_key"]
         trace_id = message["trace_id"]
