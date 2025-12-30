@@ -30,7 +30,7 @@ def bootstrap():
     mysql_password = os.environ.get("MYSQL_PW")
     mysql_db = os.environ.get("MYSQL_DB")
     CONSUME_QUEUE_NAME_PRE_FACIAL = "source_data_passenger"
-    CONSUME_QUEUE_NAME_POST_PROCESS = "source_data_facial"
+    CONSUME_QUEUE_NAME_POST_FACIAL = "source_data_facial"
     PRODUCE_QUEUE_NAME_PRE_FACIAL = "source_data_flight"
     PRODUCE_QUEUE_NAME_POST_FACIAL = "upd_facial_data_flight"
     logdir = os.environ.get("log_directory", ".")
