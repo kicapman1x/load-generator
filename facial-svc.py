@@ -112,7 +112,8 @@ def process_message(channel, method, properties, body):
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],
-                "facial_image": facial_b64
+                "facial_image": facial_b64,
+                "trace_id": trace_id
             }
             body = json.dumps(message_push)
             channel.basic_publish(
