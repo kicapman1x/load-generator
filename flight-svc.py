@@ -144,7 +144,7 @@ def process_message_post_facial(channel, method, properties, body):
             message_push = {
                 "passenger_key": p_key,
                 "trace_id": trace_id,
-                "departure_date": flight_details["departure_date"],
+                "departure_date": flight_details["departure_date"].isoformat(sep=" ", timespec="minutes"),
                 "arrival_airport": flight_details["arrival_airport"]
             }
             body = json.dumps(message_push)
