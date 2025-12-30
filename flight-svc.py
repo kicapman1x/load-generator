@@ -17,7 +17,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_PROCESS, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL, conn
+    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_FACIAL, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL, conn
     rmq_url = os.environ.get("RMQ_HOST")
     rmq_port = int(os.environ.get("RMQ_PORT"))
     rmq_username = os.environ.get("RMQ_USER")
