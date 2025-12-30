@@ -36,7 +36,7 @@ def bootstrap():
     mysql_db_s1 = os.environ.get("MYSQL_DB_SATELLITE1")
     mysql_db_s2 = os.environ.get("MYSQL_DB_SATELLITE2")
     mysql_db_s3 = os.environ.get("MYSQL_DB_SATELLITE3")
-    CONSUME_QUEUE_NAME = "source_data_facial"
+    CONSUME_QUEUE_NAME = "upd_facial_data_flight"
     PRODUCE_QUEUE_NAME = "ingest_facial_data_"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
