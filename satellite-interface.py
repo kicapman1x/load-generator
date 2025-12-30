@@ -12,6 +12,7 @@ import logging
 import requests
 import gzip
 from datetime import datetime
+import random
 
 logger = logging.getLogger(__name__)
 
