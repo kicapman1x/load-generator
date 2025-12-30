@@ -91,7 +91,7 @@ def process_message(ch, method, properties, body):
     conn_s1 = get_mysql_connection_s1()
     try:
         message = json.loads(body)
-        logger.info(f"Received message for satellite 1: {message}")
+        logger.info("Received message for satellite 1")
 
         p_key = message["passenger_key"]
         trace_id = message["trace_id"]

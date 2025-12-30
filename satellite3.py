@@ -32,7 +32,7 @@ def bootstrap():
     mysql_port = int(os.environ.get("MYSQL_PORT"))
     mysql_user = os.environ.get("MYSQL_USER")
     mysql_password = os.environ.get("MYSQL_PW")
-    mysql_db_s3 = os.environ.get("MYSQL_DB_SATELLITE1")
+    mysql_db_s3 = os.environ.get("MYSQL_DB_SATELLITE3")
     CONSUME_QUEUE_NAME = "ingest_facial_data_s3"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
@@ -91,7 +91,7 @@ def process_message(ch, method, properties, body):
     conn_s3 = get_mysql_connection_s3()
     try:
         message = json.loads(body)
-        logger.info(f"Received message for satellite 1: {message}")
+        logger.info("Received message for satellite 3")
 
         p_key = message["passenger_key"]
         trace_id = message["trace_id"]
