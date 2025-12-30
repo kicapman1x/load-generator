@@ -57,7 +57,7 @@ def main():
 
             ref_row = random.choice(sampled_rows)
 
-            dt = datetime.now()dt = datetime.now()
+            dt = datetime.now()
             dt += timedelta(
                 hours=random.randint(1, 2),
                 minutes=random.randint(0, 59)
