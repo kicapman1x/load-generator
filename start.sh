@@ -13,6 +13,7 @@ nohup python3 source-data-interface.py > /dev/null &
 nohup python3 passenger-svc.py > /dev/null &
 nohup python3 flight-svc.py > /dev/null &
 nohup python3 facial-svc.py > /dev/null &
+nohup python3 satellite-interface.py > /dev/null &
 nohup python3 satellite1.py > /dev/null &
 nohup python3 satellite2.py > /dev/null &
 nohup python3 satellite3.py > /dev/null &
