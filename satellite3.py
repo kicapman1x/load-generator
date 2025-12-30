@@ -40,7 +40,7 @@ def bootstrap():
     #Logging setup
     log_level = getattr(logging, loglvl, logging.INFO)
     logging.basicConfig(
-        filename=f'{logdir}/facial-svc.log',
+        filename=f'{logdir}/satellite3.log',
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
@@ -98,9 +98,9 @@ def process_message(ch, method, properties, body):
         facial_image = message["facial_image"]
         departure_date = datetime.strptime(message["departure_date"], "%Y-%m-%d %H:%M")
         arrival_airport = message["arrival_airport"]
-        logger.info(f"Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
+        logger.info(f"[{trace_id}] Inserting data for passenger: {p_key} with trace ID: {trace_id}")
 
-        insert_full_data_satellite1(
+        insert_full_data_satellite3(
             conn_s3,
             p_key,
             trace_id,
@@ -109,7 +109,7 @@ def process_message(ch, method, properties, body):
             arrival_airport
         )
         conn_s3.commit()
-        logger.info(f"Successfully commited data for passenger: {p_key} into satellite 1 database.")
+        logger.info(f"[{trace_id}] Successfully commited data for passenger: {p_key} into satellite 3 database.")
     except Exception as e:
         logger.error(f"Error processing message: {e}")
         channel.basic_nack(
@@ -120,14 +120,14 @@ def process_message(ch, method, properties, body):
         ch.basic_ack(delivery_tag=method.delivery_tag)
         conn_s3.close()
 
-def insert_full_data_satellite1(conn, passenger_key, trace_id, facial_image, departure_date, arrival_airport):
+def insert_full_data_satellite3(conn, passenger_key, trace_id, facial_image, departure_date, arrival_airport):
     cursor = conn.cursor()
     insert_query = """
         INSERT INTO touchpoint (passenger_key, trace_id, facial_image, departure_date, arrival_airport)
         VALUES (%s, %s, %s, %s, %s)
     """
     cursor.execute(insert_query, (passenger_key, trace_id, facial_image, departure_date, arrival_airport))
-    logger.info(f"Inserted data for passenger {passenger_key} into satellite 1 database.")
+    logger.info(f"[{trace_id}] Inserted data for passenger {passenger_key} into satellite 3 database.")
 
 def main():
     bootstrap()

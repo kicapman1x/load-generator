@@ -44,7 +44,7 @@ def bootstrap():
     #Logging setup
     log_level = getattr(logging, loglvl, logging.INFO)
     logging.basicConfig(
-        filename=f'{logdir}/facial-svc.log',
+        filename=f'{logdir}/satellite-interface.log',
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
@@ -146,9 +146,10 @@ def process_message(channel, method, properties, body):
         logger.info(f"Received message: {message}")
 
         p_key = message["passenger_key"]
+        trace_id = message["trace_id"]
 
         if passenger_exists_satellite(conn_s1, conn_s2, conn_s3, p_key):
-            logger.warning(f"Passenger already exists : {p_key} - skipping ingesting to satellite queue.")
+            logger.warning(f"[{trace_id}] Passenger already exists : {p_key} - skipping ingesting to satellite queue.")
         else:
             selected_satellite = None
             departure_date = message["departure_date"]
@@ -156,15 +157,15 @@ def process_message(channel, method, properties, body):
             satelite_check = flight_exists_satellite(conn_s1, conn_s2, conn_s3, datetime.strptime(departure_date,"%Y-%m-%d %H:%M"), arrival_airport)
             if satelite_check:
                 selected_satellite = satelite_check
-                logger.info(f"Flight exists in satellite {selected_satellite} - routing facial data accordingly.")
+                logger.info(f"[{trace_id}] Flight exists in satellite {selected_satellite} - routing facial data accordingly.")
             else:
                 selected_satellite = random.choice(["s1", "s2", "s3"])
-                logger.info(f"Flight does not exist in any satellite - defaulting to randomly selected satellite {selected_satellite} for ingestion.")
+                logger.info(f"[{trace_id}] Flight does not exist in any satellite - defaulting to randomly selected satellite {selected_satellite} for ingestion.")
 
             trace_id = message["trace_id"]
-            logger.info(f"Ingesting data for passenger: {p_key} with trace ID: {trace_id}")
+            logger.info(f"[{trace_id}] Ingesting data for passenger: {p_key} with trace ID: {trace_id}")
 
-            logger.info(f"Publishing facial details to {PRODUCE_QUEUE_NAME}{selected_satellite}")
+            logger.info(f"[{trace_id}] Publishing facial details to {PRODUCE_QUEUE_NAME}{selected_satellite}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME + selected_satellite, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],

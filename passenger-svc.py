@@ -89,10 +89,10 @@ def process_message(channel, method, properties, body):
 
         p_key, trace_id = process_person(message)
         if(p_key):
-            logger.info(f"Processed passenger: {p_key}")
+            logger.info(f"[{trace_id}] Processed passenger: {p_key}")
             message["passenger_key"] = p_key
             message["trace_id"] = trace_id
-            logger.info(f"Publishing passenger details to {PRODUCE_QUEUE_NAME}")
+            logger.info(f"[{trace_id}] Publishing passenger details to {PRODUCE_QUEUE_NAME}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
             body = json.dumps(message)
 
@@ -104,9 +104,9 @@ def process_message(channel, method, properties, body):
                     delivery_mode=2
                 )
             )
-            logger.info("Passenger details written and message published.")
+            logger.info(f"[{trace_id}] Passenger details written and message published.")
         else:
-            logger.info("Passenger details not written - On to next message!")    
+            logger.info(f"[{trace_id}] Passenger details not written - On to next message!")    
         channel.basic_ack(delivery_tag=method.delivery_tag)
     except Exception as e:
         logger.error(f"Error processing message: {e}")
@@ -136,6 +136,7 @@ def process_person(message):
             trace_id = str(uuid.uuid4())
             logger.debug(f"Generated trace ID: {trace_id}")
             insert_passenger(conn, p_key, p_fn, p_nat, p_age, trace_id)
+            logger.info(f"[{trace_id}] Inserted passenger {p_key} into database.")
             conn.commit()
             return p_key, trace_id
     except mysql.connector.errors.IntegrityError:

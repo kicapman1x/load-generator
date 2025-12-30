@@ -94,22 +94,21 @@ def process_message(channel, method, properties, body):
         logger.info(f"Received message: {message}")
 
         p_key = message["passenger_key"]
-
+        trace_id = message["trace_id"]
         if passenger_exists(conn, p_key):
-            logger.warning(f"Passenger exists : {p_key} - Skipping facial insertion.")
+            logger.warning(f"[{trace_id}] Passenger exists : {p_key} - Skipping facial insertion.")
             if facial_exists(conn, p_key):
-                logger.warning(f"Facial data exists for passenger : {p_key} - Skipping facial insertion.")
+                logger.warning(f"[{trace_id}] Facial data exists for passenger : {p_key} - Skipping facial insertion.")
             else:
-                logger.info(f"Feature not implemented yet - next deployment.")
+                logger.info(f"[{trace_id}] Feature not implemented yet - next deployment.")
                 #generate pic - next deployment
         else:
             facial_b64 = get_facial_image(p_key)
-            trace_id = message["trace_id"]
-            logger.info(f"Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
+            logger.info(f"[{trace_id}] Inserting facial data for passenger: {p_key} with trace ID: {trace_id}")
             insert_facial(conn, message["passenger_key"], trace_id)
             conn.commit()
 
-            logger.info(f"Publishing facial details to {PRODUCE_QUEUE_NAME}")
+            logger.info(f"[{trace_id}] Publishing facial details to {PRODUCE_QUEUE_NAME}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],

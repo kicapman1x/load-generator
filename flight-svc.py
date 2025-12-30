@@ -96,11 +96,11 @@ def process_message_pre_facial(channel, method, properties, body):
             logger.warning(f"Passenger exists : {p_key} - Skipping flight insertion.")
         else:
             trace_id = message["trace_id"]
-            logger.info(f"Inserting flight for passenger: {p_key} with trace ID: {trace_id}")
+            logger.info(f"[{trace_id}]  Inserting flight for passenger: {p_key}")
             insert_flights(conn, message["passenger_key"], trace_id, datetime.strptime(message["departure_date"],"%Y-%m-%d %H:%M"), message["arrival_airport"])
             conn.commit()
 
-            logger.info(f"Publishing flight details to {PRODUCE_QUEUE_NAME_PRE_FACIAL}")
+            logger.info(f"[{trace_id}]  Publishing flight details to {PRODUCE_QUEUE_NAME_PRE_FACIAL}")
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME_PRE_FACIAL, durable=True)
             message_push = {
                 "passenger_key": message["passenger_key"],
@@ -115,7 +115,7 @@ def process_message_pre_facial(channel, method, properties, body):
                     delivery_mode=2
                 )
             )
-            logger.info("Flight details written and message published.")
+            logger.info(f"[{trace_id}]  Flight details written and message published.")
         channel.basic_ack(delivery_tag=method.delivery_tag)    
     except Exception as e:
         logger.error(f"Error processing message: {e}")
@@ -129,6 +129,7 @@ def process_message_post_facial(channel, method, properties, body):
     try:
         message = json.loads(body)
         p_key = message["passenger_key"]
+        trace_id = message["trace_id"]
         logger.info(f"Received post facial message for passenger: {p_key}")
 
         if passenger_exists(conn, p_key):
@@ -139,7 +140,7 @@ def process_message_post_facial(channel, method, properties, body):
             channel.queue_declare(queue=PRODUCE_QUEUE_NAME_POST_FACIAL, durable=True)
             message_push = {
                 "passenger_key": p_key,
-                "trace_id": message["trace_id"],
+                "trace_id": trace_id,
                 "departure_date": parse_departure_date(flight_details["departure_date"]),
                 "arrival_airport": flight_details["arrival_airport"]
             }
@@ -152,7 +153,7 @@ def process_message_post_facial(channel, method, properties, body):
                     delivery_mode=2
                 )
             )
-            logger.info("Flight details published post facial processing with facial data.")
+            logger.info(f"[{trace_id}] Flight details published post facial processing with facial data.")
         else:
             logger.error(f"Passenger does not exist : {p_key} - cannot fetch flight details.")
         channel.basic_ack(delivery_tag=method.delivery_tag)    
@@ -206,6 +207,7 @@ def insert_flights(conn, passenger_key, trace_id, departure_date, arrival_airpor
             trace_id
         )
     )
+    logger.info(f"[{trace_id}] Inserted flight for passenger: {passenger_key}")
 
 def main():
     bootstrap()
