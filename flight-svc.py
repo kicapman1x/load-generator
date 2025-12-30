@@ -17,7 +17,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_FACIAL, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL, conn
+    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_FACIAL, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL
     rmq_url = os.environ.get("RMQ_HOST")
     rmq_port = int(os.environ.get("RMQ_PORT"))
     rmq_username = os.environ.get("RMQ_USER")
@@ -44,8 +44,8 @@ def bootstrap():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
 
-    #global sql connection
-    conn = mysql.connector.connect(
+def get_mysql_connection():
+    return mysql.connector.connect(
         host=mysql_url,
         port=mysql_port,
         user=mysql_user,
@@ -86,6 +86,7 @@ def get_rmq_connection():
     return pika.BlockingConnection(params)
 
 def process_message_pre_facial(channel, method, properties, body):
+    conn = get_mysql_connection()
     try:
         message = json.loads(body)
         logger.info(f"Received message: {message}")
@@ -116,6 +117,7 @@ def process_message_pre_facial(channel, method, properties, body):
                 )
             )
             logger.info(f"[{trace_id}]  Flight details written and message published.")
+            conn.commit()
         channel.basic_ack(delivery_tag=method.delivery_tag)    
     except Exception as e:
         logger.error(f"Error processing message: {e}")
@@ -126,6 +128,7 @@ def process_message_pre_facial(channel, method, properties, body):
     conn.close()
 
 def process_message_post_facial(channel, method, properties, body):
+    conn = get_mysql_connection()
     try:
         message = json.loads(body)
         p_key = message["passenger_key"]
@@ -154,6 +157,7 @@ def process_message_post_facial(channel, method, properties, body):
                 )
             )
             logger.info(f"[{trace_id}] Flight details published post facial processing with facial data.")
+            conn.commit()
         else:
             logger.error(f"Passenger does not exist : {p_key} - cannot fetch flight details.")
         channel.basic_ack(delivery_tag=method.delivery_tag)    
