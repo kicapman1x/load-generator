@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def bootstrap():
     #Environment variables
     load_dotenv()
-    global payload_dir, tmp_dir, ca_cert, rmq_url, rmq_port, rmq_username, rmq_password, interval, QUEUE_NAME, PUBLISH_INTERVAL, n_flights, n_passengers, logdir, loglvl
+    global tmp_dir, ca_cert, rmq_url, rmq_port, rmq_username, rmq_password, interval, QUEUE_NAME, PUBLISH_INTERVAL, n_flights, n_passengers, logdir, loglvl
     tmp_dir = os.getenv("TMP_DIR")
     ca_cert= os.environ.get("CA_PATH")
     rmq_url = os.environ.get("RMQ_HOST")
@@ -71,8 +71,6 @@ def load_csv():
 def main():
     bootstrap()
     logger.info("**********Starting source data publisher**********")
-    logger.info(f"Loading payloads from {payload_dir}/flights.csv")
-
     logger.info(f"Connecting to RabbitMQ at {rmq_url}:{rmq_port}")
     connection = get_rmq_connection()
     channel = connection.channel()
