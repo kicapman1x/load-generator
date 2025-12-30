@@ -82,7 +82,7 @@ def main():
         while True:
             rows = load_csv()
             logger.info(f"Loaded {len(rows)} rows")
-            for n in range(n_flights * n_passengers)
+            for n in range(n_flights * n_passengers):
                 logger.info("Publishing new message from source data")
                 row = random.choice(rows)
                 rows.remove(row)
