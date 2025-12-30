@@ -89,7 +89,7 @@ def main():
 
             logger.info(f"Wrote batch payload to {tmp_dir}/batch_payload.csv")
         logger.info(f"Sleeping for {interval} seconds before generating next batches")
-    time.sleep(interval)
+        time.sleep(interval)
 
 if __name__ == "__main__":
     main()
