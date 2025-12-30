@@ -7,7 +7,7 @@ source $PYTHON_VENV_DIR/bin/activate
 pip install -r requirements.txt
 
 #start services
-nohup python3 data-late.py > /dev/null &
+nohup python3 data-lake.py > /dev/null &
 sleep 5
 nohup python3 source-data-interface.py > /dev/null &
 nohup python3 passenger-svc.py > /dev/null &
