@@ -7,6 +7,7 @@ import random
 import pika
 from dotenv import load_dotenv
 import logging
+from data-lake import sample_lake
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,8 @@ def main():
     channel.queue_declare(queue=QUEUE_NAME, durable=True)
     try:
         while True:
+            logger.info(f"Loading payloads from {tmp_dir}/batch_payload.csv")
+            sample_lake()
             rows = load_csv()
             logger.info(f"Loaded {len(rows)} rows")
             for n in range(n_flights * n_passengers):

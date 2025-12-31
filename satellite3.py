@@ -131,7 +131,7 @@ def insert_full_data_satellite3(conn, passenger_key, trace_id, facial_image, dep
 
 def main():
     bootstrap()
-    logger.info("**********Starting passenger service**********")
+    logger.info("**********Starting satellite3 service**********")
 
     logger.info("Starting SSL RabbitMQ consumer...")
     global connection, channel 

@@ -136,6 +136,7 @@ def process_message(channel, method, properties, body):
 
 def get_facial_image(passenger_key):
     logger.debug(f"Generating facial image for passenger: {passenger_key}")
+    sleep(facial_api_latency)
     resp = requests.get(
         facial_api,
         timeout=10
@@ -184,7 +185,7 @@ def insert_facial(conn, passenger_key, trace_id):
 
 def main():
     bootstrap()
-    logger.info("**********Starting passenger service**********")
+    logger.info("**********Starting facial service**********")
 
     logger.info("Starting SSL RabbitMQ consumer...")
     global connection, channel 

@@ -17,13 +17,12 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_FACIAL, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL
+    global rmq_url, rmq_port, rmq_username, rmq_password, ca_cert, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, CONSUME_QUEUE_NAME_PRE_FACIAL, CONSUME_QUEUE_NAME_POST_FACIAL, PRODUCE_QUEUE_NAME_PRE_FACIAL,PRODUCE_QUEUE_NAME_POST_FACIAL, facial_api_latency, logdir, loglvl
     rmq_url = os.environ.get("RMQ_HOST")
     rmq_port = int(os.environ.get("RMQ_PORT"))
     rmq_username = os.environ.get("RMQ_USER")
     rmq_password = os.environ.get("RMQ_PW")
     ca_cert = os.environ.get("CA_PATH")
-    secret_key = os.environ.get("HMAC_KEY").encode("utf-8")
     mysql_url = os.environ.get("MYSQL_HOST")
     mysql_port = int(os.environ.get("MYSQL_PORT"))
     mysql_user = os.environ.get("MYSQL_USER")
@@ -35,6 +34,7 @@ def bootstrap():
     PRODUCE_QUEUE_NAME_POST_FACIAL = "upd_facial_data_flight"
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
+    facial_api_latency= int(os.environ.get("facial_api_latency", "0"))  
 
     #Logging setup
     log_level = getattr(logging, loglvl, logging.INFO)

@@ -231,7 +231,7 @@ def flight_exists_satellite(conn_s1, conn_s2, conn_s3, departure_date, arrival_a
 
 def main():
     bootstrap()
-    logger.info("**********Starting passenger service**********")
+    logger.info("**********Starting satellite-interface service**********")
 
     logger.info("Starting SSL RabbitMQ consumer...")
     global connection, channel 
