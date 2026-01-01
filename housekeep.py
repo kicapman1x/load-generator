@@ -122,7 +122,7 @@ def check_in():
         logger.info("[check_in] Starting soft delete of old flight records from flights table.")
         soft_delete_by_departure_dates()
         logger.info("[check_in] Soft deleted old flight records from flights table.")
-    time.sleep(check_in_interval)
+        time.sleep(check_in_interval)
 
 def flights_delete():
     while True:
@@ -137,7 +137,7 @@ def flights_delete():
         cursor.close()
         conn.close()
         logger.info(f"[flights_delete] Deleted {deleted_count} records from flights table.")
-    time.sleep(delete_flight_interval)
+        time.sleep(delete_flight_interval)
 
 def facial_n_passenger_delete():
     while True:
@@ -158,7 +158,7 @@ def facial_n_passenger_delete():
         conn.commit()
         cursor.close()
         conn.close()
-    time.sleep(delete_facial_passenger_interval)
+        time.sleep(delete_facial_passenger_interval)
 
 def satellite_delete():
     while True:
@@ -168,24 +168,24 @@ def satellite_delete():
         cursor = conn.cursor()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 1.")
-        delete_query_s1 = "DELETE touchpoint FROM touchpoint.s1 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s1 = "DELETE tp FROM touchpoint.s1 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
         cursor.execute(delete_query_s1)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 2.")
-        delete_query_s2 = "DELETE touchpoint FROM touchpoint.s2 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s2 = "DELETE tp FROM touchpoint.s2 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
         cursor.execute(delete_query_s2)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 3.")
-        delete_query_s3 = "DELETE touchpoint FROM touchpoint.s3 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s3 = "DELETE tp FROM touchpoint.s3 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
         cursor.execute(delete_query_s3)
         conn.commit()
 
         cursor.close()
         conn.close()
         logger.info("Deleted orphaned records from satellite databases.")
-    time.sleep(delete_satellite_interval)
+        time.sleep(delete_satellite_interval)
 
 def main():
     bootstrap()
