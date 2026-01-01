@@ -184,6 +184,10 @@ def houskeep_orchestrator():
         flights_delete()
         satellite_delete()
         facial_n_passenger_delete()
+        #orphaned biom detail in file system clean up can be added here
+        #create temp table and load the list of file names (which is p_keys) and remove the .b64 string from the names. 
+        #perform left join and see which is missing
+        #do an os remove on those files
         time.sleep(delete_orchestrator_interval)
 
 def main():
