@@ -21,31 +21,34 @@ if [ "$MODE" == "all" ]; then
 elif [ "$MODE" == "silo" ]; then
     case $SUB_MODE in
         "data-lake")
-            nohup python3 data-lake.py > /dev/null &
+            python3 data-lake.py
             ;;
         "data-interface")
-            nohup python3 source-data-interface.py > /dev/null &
+            python3 source-data-interface.py
             ;;
         "passenger")
-            nohup python3 passenger-svc.py > /dev/null &
+            python3 passenger-svc.py
             ;;
         "flight")
-            nohup python3 flight-svc.py > /dev/null &
+            python3 flight-svc.py
             ;;
         "facial")
-            nohup python3 facial-svc.py > /dev/null &
+            python3 facial-svc.py
             ;;
         "satellite-interface")
-            nohup python3 satellite-interface.py > /dev/null &
+            python3 satellite-interface.py
             ;;
         "s1")
-            nohup python3 satellite1.py > /dev/null &
+            python3 satellite1.py
             ;;
         "s2")
-            nohup python3 satellite2.py > /dev/null &
+            python3 satellite2.py
             ;;
         "s3")
-            nohup python3 satellite3.py > /dev/null &
+            python3 satellite3.py
+            ;;
+        "housekeep")
+            python3 housekeep.py
             ;;
         *)
             echo "Invalid application name. Please provide a valid application to start."
