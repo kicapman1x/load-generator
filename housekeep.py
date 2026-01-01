@@ -184,7 +184,7 @@ def houskeep_orchestrator():
         flights_delete()
         satellite_delete()
         facial_n_passenger_delete()
-        ime.sleep(delete_orchestrator_interval)
+        time.sleep(delete_orchestrator_interval)
 
 def main():
     bootstrap()
