@@ -14,7 +14,7 @@ import gzip
 from datetime import datetime
 import random
 import threading
-from time import sleep
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ def check_in():
         logger.info("[check_in] Starting soft delete of old flight records from flights table.")
         soft_delete_by_departure_dates()
         logger.info("[check_in] Soft deleted old flight records from flights table.")
-    sleep(check_in_interval)
+    time.sleep(check_in_interval)
 
 def flights_delete():
     while True:
@@ -137,7 +137,7 @@ def flights_delete():
         cursor.close()
         conn.close()
         logger.info(f"[flights_delete] Deleted {deleted_count} records from flights table.")
-    sleep(delete_flight_interval)
+    time.sleep(delete_flight_interval)
 
 def facial_n_passenger_delete():
     while True:
@@ -158,7 +158,7 @@ def facial_n_passenger_delete():
         conn.commit()
         cursor.close()
         conn.close()
-    sleep(delete_facial_passenger_interval)
+    time.sleep(delete_facial_passenger_interval)
 
 def satellite_delete():
     while True:
@@ -185,7 +185,7 @@ def satellite_delete():
         cursor.close()
         conn.close()
         logger.info("Deleted orphaned records from satellite databases.")
-    sleep(delete_satellite_interval)
+    time.sleep(delete_satellite_interval)
 
 def main():
     bootstrap()
@@ -206,7 +206,7 @@ def main():
     threading.Thread(target=satellite_delete, daemon=True).start()
 
     while True:
-        sleep(36000)
+        time.sleep(36000)
 
 if __name__ == "__main__":
     main()

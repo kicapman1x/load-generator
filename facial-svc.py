@@ -11,7 +11,7 @@ import uuid
 import logging
 import requests
 import gzip
-from time import sleep
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +137,7 @@ def process_message(channel, method, properties, body):
 
 def get_facial_image(passenger_key):
     logger.debug(f"Generating facial image for passenger: {passenger_key}")
-    sleep(facial_api_latency)
+    time.sleep(facial_api_latency)
     resp = requests.get(
         facial_api,
         timeout=10
