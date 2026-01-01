@@ -168,17 +168,17 @@ def satellite_delete():
         cursor = conn.cursor()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 1.")
-        delete_query_s1 = "DELETE tp FROM touchpoint.s1 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
+        delete_query_s1 = "DELETE tp FROM s1.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
         cursor.execute(delete_query_s1)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 2.")
-        delete_query_s2 = "DELETE tp FROM touchpoint.s2 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
+        delete_query_s2 = "DELETE tp FROM s2.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
         cursor.execute(delete_query_s2)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 3.")
-        delete_query_s3 = "DELETE tp FROM touchpoint.s3 AS tp LEFT JOIN flights.hq AS f1 ON tp.passenger_key = f1.passenger_key WHERE f1.passenger_key IS NULL"
+        delete_query_s3 = "DELETE tp FROM s3.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
         cursor.execute(delete_query_s3)
         conn.commit()
 
