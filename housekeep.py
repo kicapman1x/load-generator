@@ -14,6 +14,7 @@ import gzip
 from datetime import datetime
 import random
 import threading
+from time import sleep
 
 logger = logging.getLogger(__name__)
 

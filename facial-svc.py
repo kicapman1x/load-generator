@@ -11,6 +11,7 @@ import uuid
 import logging
 import requests
 import gzip
+from time import sleep
 
 logger = logging.getLogger(__name__)
 
