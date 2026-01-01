@@ -150,7 +150,7 @@ def facial_n_passenger_delete():
         deleted_facial_count = cursor.rowcount
         logger.info(f"[facial_n_passenger_delete] Deleted {deleted_facial_count} records from facial table.")
 
-        delete_query_passenger = "DELETE passenger from passenger LEFT JOIN flights ON passenger.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_passenger = "DELETE passengers from passengers LEFT JOIN flights ON passengers.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
         cursor.execute(delete_query_passenger)
         deleted_passenger_count = cursor.rowcount
         logger.info(f"[facial_n_passenger_delete] Deleted {deleted_passenger_count} records from passenger table.")
