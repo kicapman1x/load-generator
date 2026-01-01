@@ -145,7 +145,7 @@ def facial_n_passenger_delete():
         logger.info("[facial_n_passenger_delete] Starting hard delete of orphaned records from facial and passenger tables.")
         conn = get_mysql_connection()
         cursor = conn.cursor()
-        delete_query_faciial = "DELETE facial from facial LEFT JOIN flights ON facial.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_facial = "DELETE facial from facial LEFT JOIN flights ON facial.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
         cursor.execute(delete_query_facial)
         deleted_facial_count = cursor.rowcount
         logger.info(f"[facial_n_passenger_delete] Deleted {deleted_facial_count} records from facial table.")
@@ -168,17 +168,17 @@ def satellite_delete():
         cursor = conn.cursor()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 1.")
-        delete_query_s1 = "DELETE FROM touchpoint FROM touchpoint.s1 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s1 = "DELETE touchpoint FROM touchpoint.s1 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
         cursor.execute(delete_query_s1)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 2.")
-        delete_query_s2 = "DELETE FROM touchpoint FROM touchpoint.s2 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s2 = "DELETE touchpoint FROM touchpoint.s2 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
         cursor.execute(delete_query_s2)
         conn.commit()
 
         logger.info("[satellite_delete] Deleting orphaned records from satellite 3.")
-        delete_query_s3 = "DELETE FROM touchpoint FROM touchpoint.s3 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+        delete_query_s3 = "DELETE touchpoint FROM touchpoint.s3 AS touchpoint LEFT JOIN flights.hq AS flights ON touchpoint.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
         cursor.execute(delete_query_s3)
         conn.commit()
 
