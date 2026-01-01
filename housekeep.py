@@ -122,7 +122,7 @@ def check_in():
         logger.info("[check_in] Soft deleted old flight records from flights table.")
         time.sleep(check_in_interval)
 
-def flights_delete()
+def flights_delete():
     #hard delete flight
     logger.info("[flights_delete] Starting hard delete of records marked for deletion from flights table.")
     conn = get_mysql_connection()
