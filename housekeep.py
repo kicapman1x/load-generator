@@ -22,7 +22,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, logdir, loglvl, mysql_db_s1, mysql_db_s2, mysql_db_s3, check_in_interval, delete_flight_interval, delete_facial_passenger_interval, delete_satellite_interval
+    global ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, logdir, loglvl, mysql_db_s1, mysql_db_s2, mysql_db_s3, check_in_interval, delete_orchestrator_interval
     ca_cert = os.environ.get("CA_PATH")
     mysql_url = os.environ.get("MYSQL_HOST")
     mysql_port = int(os.environ.get("MYSQL_PORT"))
@@ -35,9 +35,7 @@ def bootstrap():
     logdir = os.environ.get("log_directory", ".")
     loglvl = os.environ.get("log_level", "INFO").upper()
     check_in_interval = int(os.environ.get("check_in_interval", "60"))
-    delete_flight_interval = int(os.environ.get("delete_flight_interval", "60"))
-    delete_facial_passenger_interval = int(os.environ.get("delete_facial_passenger_interval", "60"))
-    delete_satellite_interval = int(os.environ.get("delete_satellite_interval", "60"))
+    delete_orchestrator_interval = int(os.environ.get("delete_orchestrator_interval", "300"))
 
     #Logging setup
     log_level = getattr(logging, loglvl, logging.INFO)
@@ -124,68 +122,69 @@ def check_in():
         logger.info("[check_in] Soft deleted old flight records from flights table.")
         time.sleep(check_in_interval)
 
-def flights_delete():
-    while True:
-        #hard delete flight
-        logger.info("[flights_delete] Starting hard delete of records marked for deletion from flights table.")
-        conn = get_mysql_connection()
-        cursor = conn.cursor()
-        delete_query = "DELETE FROM flights WHERE to_delete = TRUE"
-        cursor.execute(delete_query)
-        deleted_count = cursor.rowcount
-        conn.commit()
-        cursor.close()
-        conn.close()
-        logger.info(f"[flights_delete] Deleted {deleted_count} records from flights table.")
-        time.sleep(delete_flight_interval)
+def flights_delete()
+    #hard delete flight
+    logger.info("[flights_delete] Starting hard delete of records marked for deletion from flights table.")
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    delete_query = "DELETE FROM flights WHERE to_delete = TRUE"
+    cursor.execute(delete_query)
+    deleted_count = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    conn.close()
+    logger.info(f"[flights_delete] Deleted {deleted_count} records from flights table.")
 
 def facial_n_passenger_delete():
-    while True:
-        #hard delete facial and passenger data
-        logger.info("[facial_n_passenger_delete] Starting hard delete of orphaned records from facial and passenger tables.")
-        conn = get_mysql_connection()
-        cursor = conn.cursor()
-        delete_query_facial = "DELETE facial from facial LEFT JOIN flights ON facial.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
-        cursor.execute(delete_query_facial)
-        deleted_facial_count = cursor.rowcount
-        logger.info(f"[facial_n_passenger_delete] Deleted {deleted_facial_count} records from facial table.")
+    #hard delete facial and passenger data
+    logger.info("[facial_n_passenger_delete] Starting hard delete of orphaned records from facial and passenger tables.")
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+    delete_query_facial = "DELETE facial from facial LEFT JOIN flights ON facial.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+    cursor.execute(delete_query_facial)
+    deleted_facial_count = cursor.rowcount
+    logger.info(f"[facial_n_passenger_delete] Deleted {deleted_facial_count} records from facial table.")
 
-        delete_query_passenger = "DELETE passengers from passengers LEFT JOIN flights ON passengers.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
-        cursor.execute(delete_query_passenger)
-        deleted_passenger_count = cursor.rowcount
-        logger.info(f"[facial_n_passenger_delete] Deleted {deleted_passenger_count} records from passenger table.")
+    delete_query_passenger = "DELETE passengers from passengers LEFT JOIN flights ON passengers.passenger_key = flights.passenger_key WHERE flights.passenger_key IS NULL"
+    cursor.execute(delete_query_passenger)
+    deleted_passenger_count = cursor.rowcount
+    logger.info(f"[facial_n_passenger_delete] Deleted {deleted_passenger_count} records from passenger table.")
 
-        conn.commit()
-        cursor.close()
-        conn.close()
-        time.sleep(delete_facial_passenger_interval)
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def satellite_delete():
+    #hard delete satellite data
+    logger.info("[satellite_delete] Starting hard delete of orphaned records from satellite databases.")
+    conn = get_mysql_connection()
+    cursor = conn.cursor()
+
+    logger.info("[satellite_delete] Deleting orphaned records from satellite 1.")
+    delete_query_s1 = "DELETE tp FROM s1.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
+    cursor.execute(delete_query_s1)
+    conn.commit()
+
+    logger.info("[satellite_delete] Deleting orphaned records from satellite 2.")
+    delete_query_s2 = "DELETE tp FROM s2.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
+    cursor.execute(delete_query_s2)
+    conn.commit()
+
+    logger.info("[satellite_delete] Deleting orphaned records from satellite 3.")
+    delete_query_s3 = "DELETE tp FROM s3.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
+    cursor.execute(delete_query_s3)
+    conn.commit()
+
+    cursor.close()
+    conn.close()
+    logger.info("Deleted orphaned records from satellite databases.")
+
+def houskeep_orchestrator():
     while True:
-        #hard delete satellite data
-        logger.info("[satellite_delete] Starting hard delete of orphaned records from satellite databases.")
-        conn = get_mysql_connection()
-        cursor = conn.cursor()
-
-        logger.info("[satellite_delete] Deleting orphaned records from satellite 1.")
-        delete_query_s1 = "DELETE tp FROM s1.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
-        cursor.execute(delete_query_s1)
-        conn.commit()
-
-        logger.info("[satellite_delete] Deleting orphaned records from satellite 2.")
-        delete_query_s2 = "DELETE tp FROM s2.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
-        cursor.execute(delete_query_s2)
-        conn.commit()
-
-        logger.info("[satellite_delete] Deleting orphaned records from satellite 3.")
-        delete_query_s3 = "DELETE tp FROM s3.touchpoint AS tp LEFT JOIN hq.flights AS f ON tp.passenger_key = f.passenger_key WHERE f.passenger_key IS NULL"
-        cursor.execute(delete_query_s3)
-        conn.commit()
-
-        cursor.close()
-        conn.close()
-        logger.info("Deleted orphaned records from satellite databases.")
-        time.sleep(delete_satellite_interval)
+        flights_delete()
+        satellite_delete()
+        facial_n_passenger_delete()
+        ime.sleep(delete_orchestrator_interval)
 
 def main():
     bootstrap()
@@ -196,14 +195,8 @@ def main():
     logger.info("[check_in] Starting check-in thread.")
     threading.Thread(target=check_in, daemon=True).start()
 
-    logger.info("[satellite_delete] Starting satellite delete thread.")
-    threading.Thread(target=satellite_delete, daemon=True).start()
-
-    logger.info("[flights_delete] Starting flights delete thread.")
-    threading.Thread(target=flights_delete, daemon=True).start()
-
-    logger.info("[facial_n_passenger_delete] Starting facial and passenger delete thread.")
-    threading.Thread(target=facial_n_passenger_delete, daemon=True).start()
+    logger.info("[houskeep_orchestrator] Starting houskeep orchestrator thread.")
+    threading.Thread(target=houskeep_orchestrator, daemon=True).start()
 
     while True:
         time.sleep(36000)
