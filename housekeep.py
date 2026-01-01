@@ -22,7 +22,7 @@ load_dotenv()
 
 def bootstrap():
     #Environment variables
-    global ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, logdir, loglvl, mysql_db_s1, mysql_db_s2, mysql_db_s3, check_in_interval
+    global ca_cert, secret_key, mysql_url, mysql_port, mysql_user, mysql_password, mysql_db, logdir, loglvl, mysql_db_s1, mysql_db_s2, mysql_db_s3, check_in_interval, delete_flight_interval, delete_facial_passenger_interval, delete_satellite_interval
     ca_cert = os.environ.get("CA_PATH")
     mysql_url = os.environ.get("MYSQL_HOST")
     mysql_port = int(os.environ.get("MYSQL_PORT"))
@@ -196,14 +196,14 @@ def main():
     logger.info("[check_in] Starting check-in thread.")
     threading.Thread(target=check_in, daemon=True).start()
 
+    logger.info("[satellite_delete] Starting satellite delete thread.")
+    threading.Thread(target=satellite_delete, daemon=True).start()
+
     logger.info("[flights_delete] Starting flights delete thread.")
     threading.Thread(target=flights_delete, daemon=True).start()
 
     logger.info("[facial_n_passenger_delete] Starting facial and passenger delete thread.")
     threading.Thread(target=facial_n_passenger_delete, daemon=True).start()
-
-    logger.info("[satellite_delete] Starting satellite delete thread.")
-    threading.Thread(target=satellite_delete, daemon=True).start()
 
     while True:
         time.sleep(36000)
