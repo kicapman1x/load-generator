@@ -146,8 +146,8 @@ def get_facial_image(passenger_key):
     logger.debug(f"Facial image retrieved for passenger: {passenger_key}")
     gzipped = gzip.compress(resp.content)
     facial_b64 = base64.b64encode(gzipped).decode("utf-8")
-    with open(f"{facial_dir}/{passenger_key}.b64", "w") as f:
-        f.write(facial_b64)
+    # with open(f"{facial_dir}/{passenger_key}.b64", "w") as f:
+    #     f.write(facial_b64)
     return facial_b64
 
 def passenger_exists(conn, passenger_key):
